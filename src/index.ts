@@ -61,6 +61,7 @@ getConnection().then((connection) => {
       })
       .catch((err) => {
         console.error(err);
+        res.status(500);
       });
   });
 
@@ -73,6 +74,7 @@ getConnection().then((connection) => {
       })
       .catch((err) => {
         console.error(err);
+        res.status(500);
       });
   });
 
@@ -100,6 +102,7 @@ getConnection().then((connection) => {
       })
       .catch((err) => {
         console.error(err);
+        res.status(500);
       });
   });
 
@@ -130,6 +133,7 @@ getConnection().then((connection) => {
       })
       .catch((err) => {
         console.error(err);
+        res.status(500);
       });
   });
 
@@ -144,32 +148,17 @@ getConnection().then((connection) => {
       })
       .catch((err) => {
         console.error(err);
+        res.status(500);
       });
   });
 
   // POST /photos - add a photo to photos
-
   app.post("/photos/:id", (req: Request, res: Response) => {
     const { URL, lat, lng } = req.body;
     if (!URL || !lat || !lng) {
       res.status(400).json({ error: "Missing required fields." });
       return;
     }
-    // getConnection()
-    //   .then(async (connection) => {
-    //     const [result]: any = connection.query(
-    //       "SELECT 1 FROM Users WHERE ID = ?;",
-    //       [req.params.id]
-    //     );
-    //     if (result.length != 1) {
-    //       res.status(400).json({ error: "User not found." });
-    //       return;
-    //     }
-    //     return connection.execute(
-    //       "INSERT INTO Photos (URL, lat, lng, userID) VALUES (?, ?, ?, ?);",
-    //       [URL, lat, lng, req.params.id]
-    //     );
-    //   })
     connection
       .query("SELECT * FROM Users WHERE ID = ?;", [req.params.id])
       .then(([result]) => {
@@ -187,6 +176,7 @@ getConnection().then((connection) => {
       })
       .catch((err) => {
         console.error(err);
+        res.status(500);
       });
   });
 
