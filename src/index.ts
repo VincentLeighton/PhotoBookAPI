@@ -1,5 +1,5 @@
 import express, { Request, Response } from "express";
-import mysql from "mysql2/promise";
+import mysql, { ResultSetHeader } from "mysql2/promise";
 import cors from "cors";
 import { error } from "console";
 
@@ -115,24 +115,28 @@ app.post("/users", (req: Request, res: Response) => {
 app.delete("/users/:id", (req: Request, res: Response) => {
   getConnection()
     .then(async (connection) => {
-      const [result]: any = await connection.query(
-        "SELECT 1 FROM Users WHERE ID = ?;",
-        [req.params.id]
-      );
-      if (result.length != 1) {
-        res.status(400).json({ error: "User not found." });
-        return;
-      }
+      // const [result]: any = await connection.query(
+      //   "SELECT 1 FROM Users WHERE ID = ?;",
+      //   [req.params.id]
+      // );
+      // if (result.length != 1) {
+        // res.status(400).json({ error: "User not found." });
+      //   return;
+      // // }
       return connection.execute("DELETE from Users where ID = ?;", [
         req.params.id,
       ]);
     })
-    .then(() => {
+    .then(([result]) => {
+      if ((result as ResultSetHeader).affectedRows != 1) {
+        res.status(400).json({ error: "User not found." });
+        return;
+      }
       res.status(200).json({ message: "User sucessfully removed" });
-      return
     })
     .catch((err) => {
       console.error(err);
+      res.status(500)
     });
 });
 
