@@ -1,5 +1,7 @@
 import express, { Request, Response } from "express";
 import mysql from "mysql2/promise";
+import cors from "cors";
+import { error } from "console";
 
 const app = express();
 const port = 3002;
@@ -14,6 +16,14 @@ const getConnection = () => {
     port: 3306,
   });
 };
+
+const corsOptions = {
+  origin: "*", // Allow all origins (not recommended for production)
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  credentials: true, // Allow cookies and authorization headers
+};
+
+app.use(cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -37,11 +47,12 @@ interface Photo {
   userID: number;
 }
 
-// GET /todos - return all todos
+app.get("/", (req: Request, res: Response) => {
+  res.send("Hello!");
+});
+
+// GET /users - return all users
 app.get("/users", (req: Request, res: Response) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, DELETE");
-  res.header("Access-Control-Allow-Headers", "*");
   getConnection()
     .then((connection) => {
       return connection.query("Select * from Users;");
@@ -54,48 +65,8 @@ app.get("/users", (req: Request, res: Response) => {
     });
 });
 
-app.get("/", (req: Request, res: Response) => {
-  res.send("Hello!");
-});
-
-app.options("/users", (req: Request, res: Response) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, DELETE");
-  res.header("Access-Control-Allow-Headers", "*");
-  res.send();
-});
-
-// POST /users - add a new user
-app.post("/users", (req: Request, res: Response) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, DELETE");
-  res.header("Access-Control-Allow-Headers", "*");
-  // try {
-  //   const {username} =
-  //     req.body;
-  //   if (!username) {
-  //     res.status(400).json({
-  //       error: "Username is required.",
-  //     });
-  //     return;
-  //   }
-  //   const newUser: Users = {
-  //     username
-  //   };
-  //   users.push(newTodo);
-  //   res.status(201).json(newTodo);
-  // } catch (err) {
-  //   res.status(400).json({
-  //     error:
-  //       "Invalid request body. Expected: Summary, Author, Description, ImageURL, category, and Completed",
-  //   });
-  // }
-});
-
+// GET /users/id - return user by id
 app.get("/users/:id", (req: Request, res: Response) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, DELETE");
-  res.header("Access-Control-Allow-Headers", "*");
   getConnection()
     .then((connection) => {
       return connection.execute("Select * from Users where ID = ?;", [
@@ -110,39 +81,148 @@ app.get("/users/:id", (req: Request, res: Response) => {
     });
 });
 
-// POST /todos/:id/completed - update only the completed field of a todo
-app.post("/todos/:id", (req: Request, res: Response) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, DELETE");
-  res.header("Access-Control-Allow-Headers", "*");
-  // const { id } = req.params;
-  // const { completed } = req.body;
-  // const todo = todos.find((t) => t.id === id);
-  // if (!todo) {
-  //   res.status(404).json({ error: "Todo not found." });
-  //   return;
-  // }
-  // if (typeof completed !== "boolean") {
-  //   res.status(400).json({ error: "Completed (boolean) is required." });
-  //   return;
-  // }
-  // todo.completed = completed;
-  // res.json(todo);
+// POST /users - add a new user
+app.post("/users", (req: Request, res: Response) => {
+  const { username } = req.body;
+  if (!username) {
+    res.status(400).json({ error: "Missing required fields." });
+    return;
+  }
+  getConnection()
+    .then(async (connection) => {
+      const [result]: any = await connection.query(
+        "SELECT 1 FROM Users WHERE username = ?;",
+        [username]
+      );
+      if (result.length != 0) {
+        res.status(400).json({ error: "Username must be unique." });
+        return;
+      }
+      return connection.execute(
+        "INSERT INTO Users (username) VALUES (?);",
+        [username]
+      );
+    })
+    .then(() => {
+      res.status(200).json({ message: "User sucessfully added" });
+    })
+    .catch((err) => {
+      console.error(err);
+    });
 });
 
-// DELETE /todos/:id - delete a todo by its unique id
-app.delete("/todos/:id", (req: Request, res: Response) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, DELETE");
-  res.header("Access-Control-Allow-Headers", "*");
-  // const { id } = req.params;
-  // const idx = todos.findIndex((todo) => todo.id === id);
-  // if (idx === -1) {
-  //   res.status(404).json({ error: "Todo not found." });
-  //   return;
-  // }
-  // const deleted = todos.splice(idx, 1)[0];
-  // res.json(deleted);
+// DELETE /user/id - delete a user by id
+app.delete("/users/:id", (req: Request, res: Response) => {
+  getConnection()
+    .then(async (connection) => {
+      const [result]: any = await connection.query(
+        "SELECT 1 FROM Users WHERE ID = ?;",
+        [req.params.id]
+      );
+      if (result.length != 1) {
+        res.status(400).json({ error: "User not found." });
+        return;
+      }
+      return connection.execute("DELETE from Users where ID = ?;", [
+        req.params.id,
+      ]);
+    })
+    .then(() => {
+      res.status(200).json({ message: "User sucessfully removed" });
+      return
+    })
+    .catch((err) => {
+      console.error(err);
+    });
+});
+
+// GET /photos/userId - return all photos for a user
+app.get("/users/:id/photos", (req: Request, res: Response) => {
+  getConnection()
+    .then((connection) => {
+      return connection.execute("Select * from Photos where userID = ?;", [
+        req.params.id,
+      ]);
+    })
+    .then(([results, fields]) => {
+      res.send(results);
+    })
+    .catch((err) => {
+      console.error(err);
+    });
+});
+
+// GET /photos/id - return photo by id
+app.get("/photos/:id", (req: Request, res: Response) => {
+  getConnection()
+    .then((connection) => {
+      return connection.execute(
+        "Select * from Photos where userID = ? LIMIT 1;",
+        [req.params.id]
+      );
+    })
+    .then(([results, fields]) => {
+      res.send(results);
+    })
+    .catch((err) => {
+      console.error(err);
+    });
+});
+
+// POST /photos - add a photo to photos
+
+app.post("/photos/:id", (req: Request, res: Response) => {
+  const { URL, lat, lng } = req.body;
+  if (!URL || !lat || !lng) {
+    res.status(400).json({ error: "Missing required fields." });
+    return;
+  }
+  getConnection()
+    .then(async (connection) => {
+      const [result]: any = await connection.query(
+        "SELECT 1 FROM Users WHERE ID = ?;",
+        [req.params.id]
+      );
+      if (result.length != 1) {
+        res.status(400).json({ error: "User not found." });
+        return;
+      }
+      return connection.execute(
+        "INSERT INTO Photos (URL, lat, lng, userID) VALUES (?, ?, ?, ?);",
+        [URL, lat, lng, req.params.id]
+      );
+    })
+    .then(() => {
+      res.status(200).json({ message: "Photo sucessfully added" });
+    })
+    .catch((err) => {
+      console.error(err);
+    });
+});
+
+// DELETE /photos/id - delete a photo by id
+app.delete("/photos/:id", (req: Request, res: Response) => {
+  getConnection()
+    .then(async (connection) => {
+      const [result]: any = await connection.query(
+        "SELECT 1 FROM Photos WHERE ID = ?;",
+        [req.params.id]
+      );
+      if (result.length != 1) {
+        res.status(400).json({ error: "Photo not found." });
+        return;
+      }
+      return connection.execute("DELETE from Photos where ID = ?;", [
+        req.params.id,
+      ]);
+    })
+    .then(() => {
+      res.status(200).json({ message: "Photo sucessfully removed" });
+      return
+    })
+    .catch((err) => {
+      console.error(err);
+    });
 });
 
 app.listen(port, () => {
